@@ -15,22 +15,28 @@ Rebuild with [`tools/edit_vsl.py`](../tools/edit_vsl.py) (instructions at the to
 - **Camera (AB):** a new framing every 3-5 s on sentence breaks: wide and close shots, both with slow push-ins or
   pull-outs, plus punch-ins on "we failed", "we failed again" and "they're simply lying to you". The camera holds
   still while text sits beside his head.
-- **Captions (AB):** 2-3 words at a time with a hard switch, bottom centre, over a soft dark fade. In Ricky's style:
+- **Captions:** whole phrases (up to about 5 words), split at natural breaks and never mid-phrase, each up for at
+  least about 0.5 s (median 1 s); nothing flashes by. Bottom centre, over a soft dark fade. In Ricky's style:
   white Inter Display plus one key word in gold EB Garamond italic with a glow. Captions step aside while other
   graphics are up.
-- **Hook:** opens a little closer on Jan (slow push-in) with "I failed | *10 FTMO*".
+- **Hook:** opens a little closer on Jan (slow push-in) with "I failed | *10 FTMO challenges*". On "All in", a red
+  **-$7,000** card counts up ("lost before trading paid me a single cent").
+- **Readable text:** every phrase (side text, pages, lines under cards) builds within about half a second and then holds
+  until it leaves. Both halves of side text build together. The pages stay up long enough to read: "How prop firms
+  *work*", "*9 out of 10* traders *fail*", "*2020*", "*I was.*"
+- **Red for what went wrong**, gold for the rest: -$7,000, "A loss", "Breached", "Fail", "loss after loss",
+  "a bad month", and loss words in the captions ("failed", "lying", "losses"...).
 - **Timing:** word times re-measured on the audio (`tools/snap_words.py`: each word start moves to the clear voice
   onset next to it). Captions switch 0.03 s, cards 0.06 s and written-on text 0.08 s before the word, so they land
   as he says it.
-- **Text beside his head (AB side text, Ricky style)**, 9 times: "I failed | *10 FTMO*",
+- **Text beside his head (AB side text, Ricky style)**, 8 times: "I failed | *10 FTMO challenges*",
   "2.5 years building | *an algorithm*", "trade their | *capital*", "not a skill problem | *being human*",
   "took myself | *out of the equation*", "not some | *holy grail*", "October was | *a bad month*",
-  "get rich quick? | *this isn't it*", "this is | *for you*". The gold side is sized so it's never much wider than the
+  "get rich quick? | *this isn't it*". The gold side is sized so it's never much wider than the
   white side. The background darkens softly around him while it's up.
 - **Full-screen pages** (Ricky's STEP page, AB's keynote cards): "How prop firms *work*", "*9 out of 10* traders fail",
   "*2020*, loss after loss", "The strategy wasn't the problem. *I was.*"
 - **Cards** (orange to black, glowing rim, popping in one at a time on the words, background blurred and darkened):
-  - "*$7,000*" counting up
   - Pay a fee → *Pass* → Fail, with "not your own *capital*"
   - A loss → Go bigger → *Breached*
   - Fear / Greed / Need to be right, struck out on "an algorithm doesn't feel it"

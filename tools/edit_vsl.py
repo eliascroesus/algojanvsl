@@ -287,7 +287,7 @@ def icon_alpha(kind, size):
     return cv2.resize(np.array(im), (size, size), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
 
 
-def _frame_layers(w, h, accent, r):
+def _frame_layers(w, h, accent, r, tone="gold"):
     """shared Ricky-card chrome: mask, gradient body, rim with light sweep, glows, drop shadow."""
     g = 90
     W, H = w + 2 * g, h + 2 * g
@@ -304,7 +304,7 @@ def _frame_layers(w, h, accent, r):
     glow_w = np.clip(cv2.GaussianBlur(rim_i, (0, 0), 30) * 3.0, 0, 1)
     shadow = np.roll(cv2.GaussianBlur(full, (0, 0), 28), 20, 0) * 0.75 * (1 - full)
     return dict(g=g, W=W, H=H, full=full, XX=XX, YY=YY, u=u, d=d, rim_i=rim_i, glow_t=glow_t, glow_w=glow_w,
-                shadow=shadow, accent=accent)
+                shadow=shadow, accent=accent, tone=tone)
 
 
 def _compose(L, body_rgb, extra=None):
@@ -318,26 +318,27 @@ def _compose(L, body_rgb, extra=None):
         rgbf = rgbf * (1 - al3) + col * al3
         a = a + al * (1 - a)
 
-    rimcol = np.array((255, 156, 64), np.float32)
+    red = L.get("tone") == "red"
+    rimcol = np.array((255, 70, 60) if red else (255, 156, 64), np.float32)
     over(np.zeros(3, np.float32), L["shadow"])
     over(rimcol, L["glow_w"] * outside * (0.42 if L["accent"] else 0.30))
     over(rimcol, L["glow_t"] * outside * (0.75 if L["accent"] else 0.55))
     over(body_rgb, full * 0.97)
     if extra is not None:
         over(*extra)
-    over(np.array((255, 196, 140), np.float32), L["rim_i"])
+    over(np.array((255, 150, 140) if red else (255, 196, 140), np.float32), L["rim_i"])
     return rgbf, a
 
 
 @functools.lru_cache(None)
 def ui_card(w, h, main="", sub="", style="sans", icon=None, accent=False, check=False, main_px=0, align="c",
-            sub_px=0):
+            sub_px=0, tone="gold"):
     """Ricky's card: rounded rect, orange -> black gradient, faded grid inside, glowing orange rim, faded icon."""
     r = int(min(56, h * 0.28))
-    L = _frame_layers(w, h, accent, r)
+    L = _frame_layers(w, h, accent, r, tone)
     g, W, H, XX, YY, u, d = L["g"], L["W"], L["H"], L["XX"], L["YY"], L["u"], L["d"]
     warm = np.clip(1 - d * 1.25, 0, 1) ** 1.5
-    orange = np.array((232, 104, 24), np.float32)
+    orange = np.array((205, 30, 30) if tone == "red" else (232, 104, 24), np.float32)
     dark = np.array((9, 8, 8), np.float32)
     body = dark + (orange - dark) * (warm * (0.62 if accent else 0.42))[:, :, None]
     step = 30
@@ -375,10 +376,11 @@ def ui_card(w, h, main="", sub="", style="sans", icon=None, accent=False, check=
         serif = style == "serif"
         px = main_px if main_px else (h * (0.36 if serif else 0.2))
         path = F_SERIF if serif else F_SANS
-        col = gold if (serif and accent) else (246, 244, 242, 255)
+        col = (255, 72, 66, 255) if tone == "red" else gold if (serif and accent) else (246, 244, 242, 255)
         cy = g + h * (0.42 if sub else 0.5)
         anchor = "mm" if align == "c" else "lm"
-        draw_text_pil(im, (g + w / 2 if align == "c" else x, cy), main, path, px, col, anchor, glow=serif and accent)
+        draw_text_pil(im, (g + w / 2 if align == "c" else x, cy), main, path, px, col, anchor,
+                      glow=serif and (accent or tone == "red"))
         if sub:
             draw_text_pil(im, (g + w / 2 if align == "c" else x, g + h * 0.76), sub, F_SANS_M,
                           sub_px or h * 0.085, (214, 206, 198, 255), anchor)
@@ -446,16 +448,18 @@ class TextSeq:
     """lines: [[(word, style, t_start), ...], ...]  style 'sans' | 'serif' | 'grey' | 'red'."""
 
     def __init__(self, lines, t_out, centre=(OW / 2, OH / 2), sizes=(84, 150), gap=1.0, align="c",
-                 stagger=0.035, dur=0.5, ry=0.0, rz=0.0, shadow=0.55):
+                 stagger=0.035, dur=0.5, ry=0.0, rz=0.0, shadow=0.55, base=None, spread=0.45):
         self.t_out, self.stagger, self.dur = t_out, stagger, dur
         self.ry, self.rz, self.shadow = ry, rz, shadow
         self.chars = []
         sans_px, serif_px = sizes
         heights, layouts = [], []
+        # readable: the whole phrase builds within ~0.45 s of its first word, then holds until t_out
+        ts = (rt(base) if base is not None else min(rt(w[2]) for ln in lines for w in ln)) - TEXT_LEAD
         for line in lines:
             x, items, lh = 0.0, [], 0
             for wi, (word, style, t0) in enumerate(line):
-                t0 = rt(t0) - TEXT_LEAD
+                t0 = ts + min((rt(t0) - TEXT_LEAD - ts) * 0.45, spread)
                 path, px = ((F_SERIF, serif_px) if style in ("serif", "red") else
                             (F_SANS_M, sans_px * 0.42) if style == "grey" else (F_SANS, sans_px))
                 f = font(path, px)
@@ -694,17 +698,20 @@ def side(left, right, t_out, y=300, sizes=(92, 150), sl=SL, sr=SR_):
     lw = width(left, F_SANS, sans_px)
     while serif_px > 96 and width(right, F_SERIF, serif_px) > 1.12 * lw:
         serif_px -= 2
-    return [TextSeq(left, t_out, (sl, y), sizes=(sans_px, serif_px), align="r", ry=-12, rz=-1.5),
-            TextSeq(right, t_out, (sr, y + 10), sizes=(sans_px, serif_px), align="l", ry=14, rz=3, stagger=0.045)]
+    base = min(w[2] for ln in left + right for w in ln)   # both halves build together, then hold
+    return [TextSeq(left, t_out, (sl, y), sizes=(sans_px, serif_px), align="r", ry=-12, rz=-1.5, base=base,
+                    spread=0.6),
+            TextSeq(right, t_out, (sr, y + 10), sizes=(sans_px, serif_px), align="l", ry=14, rz=3, stagger=0.045,
+                    base=base, spread=0.6)]
 
 
 SIDES = [
     (0.00, 2.32, side([L(("I", "sans", 0.0), ("failed", "sans", 0.06))],
-                      [L(("10", "serif", 0.34), ("FTMO", "serif", 0.54))], 2.32, y=290, sizes=(100, 120),
-                      sl=770, sr=1165)),
+                      [L(("10", "serif", 0.34), ("FTMO", "serif", 0.54)), L(("challenges", "serif", 0.98))], 2.32,
+                      y=300, sizes=(108, 116), sl=770, sr=1165)),
     (7.46, 10.92, side([L(("2.5", "sans", 7.92), ("years", "sans", 8.38)), L(("building", "sans", 8.66))],
                        [L(("an", "serif", 9.04)), L(("algorithm", "serif", 9.22))], 10.92, sizes=(88, 140))),
-    (16.42, 17.98, side([L(("trade", "sans", 17.10), ("their", "sans", 17.28))],
+    (16.90, 17.98, side([L(("trade", "sans", 17.10), ("their", "sans", 17.28))],
                         [L(("capital", "serif", 17.44))], 17.98)),
     (41.38, 43.52, side([L(("not", "sans", 41.74), ("a", "sans", 41.86)), L(("skill", "sans", 41.98),
                          ("problem", "sans", 42.16))], [L(("being", "serif", 42.84)), L(("human", "serif", 43.0))],
@@ -715,13 +722,11 @@ SIDES = [
     (107.78, 109.50, side([L(("not", "sans", 107.98), ("some", "sans", 108.06))],
                           [L(("holy", "serif", 108.24)), L(("grail", "serif", 108.46))], 109.50, sizes=(92, 140))),
     (109.70, 111.45, side([L(("October", "sans", 109.74)), L(("was", "sans", 110.72))],
-                          [L(("a", "serif", 110.86), ("bad", "serif", 110.96)), L(("month", "serif", 111.12))],
+                          [L(("a", "red", 110.86), ("bad", "red", 110.96)), L(("month", "red", 111.12))],
                           111.45, sizes=(92, 140))),
     (125.74, 128.10, side([L(("get", "sans", 126.44), ("rich", "sans", 126.56)), L(("quick?", "sans", 126.74))],
                           [L(("this", "serif", 127.48), ("isn't", "serif", 127.60)), L(("it", "serif", 127.86))],
                           128.10, sizes=(92, 140))),
-    (134.58, 135.42, side([L(("this", "sans", 134.70), ("is", "sans", 134.88))],
-                          [L(("for", "serif", 134.98), ("you", "serif", 135.06))], 135.42)),
 ]
 BGFX = [(a - 0.05, b + 0.1) for a, b, _ in SIDES]   # soft ellipse darken while side text is up
 
@@ -733,28 +738,28 @@ def page(t0, t1, texts, strokes=()):
     PAGES.append((t0, t1, texts, list(strokes)))
 
 
-_p = TextSeq([L(("THE", "grey", 14.15), ("QUICK", "grey", 14.2), ("VERSION", "grey", 14.25))], 16.36,
+_p = TextSeq([L(("THE", "grey", 14.15), ("QUICK", "grey", 14.2), ("VERSION", "grey", 14.25))], 16.86,
              (OW / 2, 380), sizes=(96, 96), stagger=0.03)
 _q = TextSeq([L(("How", "sans", 14.42), ("prop", "sans", 14.54), ("firms", "sans", 14.66), ("work", "serif", 15.42))],
-             16.36, (OW / 2, 540), sizes=(110, 190))
-page(14.10, 16.40, [_p, _q], [underline(_q, 15.75, 16.36)])
+             16.86, (OW / 2, 540), sizes=(110, 190))
+page(14.10, 16.90, [_p, _q], [underline(_q, 14.90, 16.86)])
 
 _a = TextSeq([L(("9", "serif", 29.32), ("out", "serif", 29.50), ("of", "serif", 29.70), ("10", "serif", 29.80))],
-             30.98, (OW / 2, 470), sizes=(110, 250))
-_b = TextSeq([L(("traders", "sans", 29.96), ("fail", "sans", 30.26))], 30.98, (OW / 2, 700), sizes=(110, 190))
-page(28.82, 31.00, [_a, _b])
+             31.46, (OW / 2, 470), sizes=(110, 250))
+_b = TextSeq([L(("traders", "sans", 29.96), ("fail", "red", 30.26))], 31.46, (OW / 2, 700), sizes=(110, 170))
+page(28.82, 31.50, [_a, _b])
 
-_a = TextSeq([L(("TRADING", "grey", 51.92), ("MANUALLY", "grey", 51.98))], 54.44, (OW / 2, 330), sizes=(96, 96),
+_a = TextSeq([L(("TRADING", "grey", 51.92), ("MANUALLY", "grey", 51.98))], 54.41, (OW / 2, 330), sizes=(96, 96),
              stagger=0.03)
-_b = TextSeq([L(("2020", "serif", 50.76))], 54.44, (OW / 2, 500), sizes=(110, 260), stagger=0.06)
-_c = TextSeq([L(("loss", "sans", 53.28), ("after", "sans", 53.66), ("loss", "sans", 53.96))], 54.44, (OW / 2, 730),
+_b = TextSeq([L(("2020", "serif", 50.76))], 54.41, (OW / 2, 500), sizes=(110, 260), stagger=0.06)
+_c = TextSeq([L(("loss", "red", 53.28), ("after", "red", 53.66), ("loss", "red", 53.96))], 54.41, (OW / 2, 730),
              sizes=(100, 150))
-page(50.62, 54.48, [_a, _b, _c])
+page(50.62, 54.45, [_a, _b, _c])
 
 _a = TextSeq([L(("The", "sans", 75.96), ("strategy", "sans", 76.22), ("wasn't", "sans", 76.54), ("the", "sans", 76.84),
-                ("problem.", "sans", 76.94))], 78.0, (OW / 2, 430), sizes=(96, 150))
-_b = TextSeq([L(("I", "serif", 77.48), ("was.", "serif", 77.62))], 78.0, (OW / 2, 640), sizes=(110, 260))
-page(75.90, 78.05, [_a, _b], [underline(_b, 77.95, 78.0)])
+                ("problem.", "sans", 76.94))], 78.9, (OW / 2, 430), sizes=(96, 150))
+_b = TextSeq([L(("I", "serif", 77.48), ("was.", "serif", 77.62))], 78.9, (OW / 2, 640), sizes=(110, 260))
+page(75.90, 78.95, [_a, _b], [underline(_b, 77.85, 78.9)])
 
 MONTAGE = (122.10, 125.66)
 MONT_IMGS = [  # (file, centre x, centre y, width, rotation, pop time)
@@ -776,16 +781,16 @@ MONT_LABEL = TextSeq([L(("MEMBERS", "grey", 122.12), ("RUNNING", "grey", 122.16)
 FULLSCREEN = [(a, b, "page", i) for i, (a, b, _, _) in enumerate(PAGES)] + [(MONTAGE[0], MONTAGE[1], "montage", 0)]
 
 # ---- cards / photos over the (dimmed) footage
-CARD_DIM = [(2.70, 5.95), (18.00, 27.15), (35.50, 41.36), (43.56, 49.10), (81.90, 88.75), (90.30, 97.00),
+CARD_DIM = [(2.32, 5.95), (18.00, 27.15), (35.50, 41.36), (43.56, 49.10), (81.90, 88.75), (90.30, 97.00),
             (103.40, 105.10)]
 PHOTO_DIM = [(62.70, 65.75), (97.10, 100.00)]
 
 
 def count_7000(t):
     if t < rt(3.30):
-        return "$0"
+        return "-$0"
     v = int(round(7000 * e_out((t - rt(3.30)) / 0.55) / 10) * 10)
-    return f"${v:,}"
+    return f"-${v:,}"
 
 
 STRIKES = [  # (x0, y0, x1, y1, t0, t_out, colour)
@@ -817,23 +822,23 @@ def cards_over(fr, t):
     """all cards/photos drawn over the footage."""
     y = 540
     # hook: $7,000 lost
-    if 2.7 <= t <= 5.95:
-        pop_in(fr, ui_card(620, 400, count_7000(t), "lost before trading paid me a cent", style="serif", accent=True,
-                           icon="down", main_px=150, sub_px=30), 960, y, t, 2.82, 5.95)
+    if 2.3 <= t <= 5.95:
+        pop_in(fr, ui_card(640, 400, count_7000(t), "lost before trading paid me a single cent", style="serif",
+                           icon="down", main_px=150, sub_px=29, tone="red"), 960, y, t, 2.40, 5.95)
     # fee / pass / fail
     pop_in(fr, ui_card(420, 300, "Pay a fee", "to take their evaluation", icon="dollar", main_px=58, sub_px=29),
            460, y, t, 18.18, 27.15)
     pop_in(fr, ui_card(420, 300, "Pass", "keep most of the profits", style="serif", accent=True, icon="chart",
                        main_px=110, sub_px=29), 960, y, t, 20.14, 27.15)
     pop_in(fr, ui_card(420, 300, "Fail", "you only lose the fee", style="serif", icon="down", main_px=110,
-                       sub_px=29), 1460, y, t, 22.52, 27.15)
+                       sub_px=29, tone="red"), 1460, y, t, 22.52, 27.15)
     # the one trade
     pop_in(fr, ui_card(420, 300, "A loss", "the trade goes against you", style="serif", icon="down", main_px=100,
-                       sub_px=29), 460, y, t, 35.64, 41.36)
+                       sub_px=29, tone="red"), 460, y, t, 35.64, 41.36)
     pop_in(fr, ui_card(420, 300, "Go bigger", "to win it back", icon="chart", main_px=58, sub_px=29),
            960, y, t, 36.72, 41.36)
-    pop_in(fr, ui_card(420, 300, "Breached", "the drawdown limit", style="serif", accent=True, main_px=100,
-                       sub_px=29), 1460, y, t, 39.52, 41.36)
+    pop_in(fr, ui_card(420, 300, "Breached", "the drawdown limit", style="serif", main_px=100,
+                       sub_px=29, tone="red"), 1460, y, t, 39.52, 41.36)
     # fear / greed / need to be right
     pop_in(fr, ui_card(420, 300, "Fear", "", style="serif", icon="brain", main_px=110), 460, y, t, 43.62, 49.10)
     pop_in(fr, ui_card(420, 300, "Greed", "", style="serif", icon="dollar", main_px=110), 960, y, t, 44.00, 49.10)
@@ -888,11 +893,12 @@ SPOT = (100.0, 103.40)            # spotlight on his FTMO certificate (flipped f
 SPOT_RECT = (20, 430, 380, 870)
 
 # ---- captions (AB: 2-3 words, hard switch; Ricky: white Inter + one gold serif word)
-GOLD = {"$7,000", "cent", "algorithm", "doesn't", "fail", "strategy", "loss", "back", "drawdown", "hard", "automate",
-        "programmer", "advanced", "money", "failed", "years", "today", "simple", "point", "work", "payouts",
-        "honest", "perfect", "machine", "month", "losses", "lying", "people", "work", "reason", "algorithm",
-        "join", "touch", "capital", "evaluation", "profits", "fee", "bad", "bigger", "right", "human",
-        "multiple", "manually", "myself", "once", "charts", "trade"}
+GOLD = {"cent", "algorithm", "doesn't", "strategy", "back", "drawdown", "hard", "automate",
+        "programmer", "advanced", "money", "years", "today", "simple", "point", "work", "payouts",
+        "honest", "perfect", "machine", "month", "people", "reason", "algorithms",
+        "join", "touch", "capital", "evaluation", "profits", "fee", "bigger", "right", "human",
+        "multiple", "manually", "myself", "once", "charts", "trade", "minutes", "application", "you"}
+RED_WORDS = {"failed", "fail", "lost", "loss", "losses", "lying", "bad", "breach", "revenge", "lose"}
 NO_CAPS = ([(a, b) for a, b, _ in SIDES] + [(a, b) for a, b, _, _ in FULLSCREEN] + CARD_DIM +
            [SPLIT, CTA_DIM])
 
@@ -913,22 +919,66 @@ def _caption_groups():
             ws[-1]["e"] = w["e"]
             continue
         ws.append(dict(w))
-    groups, cur = [], []
+    # 1) clauses: split at . , ? ! , at pauses and where a graphic hides the captions
+    clauses, cur = [], []
     for i, w in enumerate(ws):
         if hidden(w["s"] + 0.05):
             if cur:
-                groups.append(cur)
+                clauses.append(cur)
                 cur = []
             continue
         cur.append(w)
         nxt = ws[i + 1] if i + 1 < len(ws) else None
-        chars = sum(len(x["w"]) for x in cur)
-        brk = (len(cur) >= 3 or chars >= 14 or w["w"][-1] in ".,?!" or nxt is None or nxt["s"] - w["e"] > 0.25)
-        if brk:
-            groups.append(cur)
+        if nxt is None or hidden(nxt["s"] + 0.05) or nxt["s"] - w["e"] > 0.3 or w["w"][-1] in ".,?!":
+            clauses.append(cur)
             cur = []
     if cur:
-        groups.append(cur)
+        clauses.append(cur)
+    # 2) short clauses joined to the next one inside the same sentence (a comma, not a full stop)
+    joined = []
+    for c in clauses:
+        if joined:
+            p = joined[-1]
+            same_sentence = p[-1]["w"][-1] == "," and c[0]["s"] - p[-1]["e"] < 0.3
+            short = (p[-1]["e"] - p[0]["s"]) < 0.8 or (c[-1]["e"] - c[0]["s"]) < 0.6
+            if same_sentence and short and sum(len(x["w"]) + 1 for x in p + c) <= 30:
+                joined[-1] = p + c
+                continue
+        joined.append(c)
+    # 3) long clauses cut into balanced pieces (<= 26 characters, >= ~0.8 s each), never ending on a weak word
+    WEAK = {"the", "a", "an", "to", "of", "and", "that", "my", "your", "i'm", "is", "in", "on", "for", "at", "their",
+            "it", "you", "as", "or", "but", "so", "with", "this", "be", "no", "not", "i", "we", "gonna", "any", "if",
+            "prop", "every", "single", "lot", "multiple", "two", "pay"}
+    groups = []
+    for c in joined:
+        chars = sum(len(x["w"]) + 1 for x in c)
+        dur = c[-1]["e"] - c[0]["s"]
+        k = max(1, math.ceil(chars / 26))
+        k = max(k, min(math.ceil(chars / 34), len(c)))
+        while k > 1 and dur / k < 0.8 and math.ceil(chars / (k - 1)) <= 34:
+            k -= 1
+        if k == 1:
+            groups.append(c)
+            continue
+        # balanced split points by characters, nudged off weak words
+        cum = np.cumsum([len(x["w"]) + 1 for x in c])
+        cuts = []
+        for j in range(1, k):
+            target = chars * j / k
+            i = int(np.argmin(np.abs(cum - target)))
+            for d in (0, 1, -1, 2, -2):
+                ii = i + d
+                if 0 <= ii < len(c) - 1 and c[ii]["w"].strip(".,?!").lower() not in WEAK and \
+                        (not cuts or ii > cuts[-1]):
+                    i = ii
+                    break
+            if not cuts or i > cuts[-1]:
+                cuts.append(i)
+        prev = 0
+        for i in cuts:
+            groups.append(c[prev:i + 1])
+            prev = i + 1
+        groups.append(c[prev:])
     out = []
     for gi, g in enumerate(groups):
         t0 = g[0]["s"]
@@ -937,7 +987,8 @@ def _caption_groups():
         for a, b in NO_CAPS:
             if t0 < a < t1:
                 t1 = a - 0.05
-        out.append((t0, t1, [x["w"].strip(".,?!") for x in g]))
+        if t1 - t0 >= 0.45:   # never flash a caption too short to read
+            out.append((t0, t1, [x["w"].strip(".,?!") for x in g]))
     return out
 
 
@@ -947,10 +998,13 @@ CAPTIONS = _caption_groups()
 @functools.lru_cache(None)
 def caption_sprite(words):
     words = list(words)
-    gold_i = None
+    gold_i, red = None, False
     for i, w in enumerate(words):
         if w.strip("$").lower() in GOLD or w in GOLD:
             gold_i = i
+    for i, w in enumerate(words):
+        if w.lower() in RED_WORDS:
+            gold_i, red = i, True
     if gold_i is None:
         for i, w in enumerate(words):
             if any(ch.isdigit() for ch in w):
@@ -984,11 +1038,25 @@ def caption_sprite(words):
     return pil_to_bgra(im)
 
 
+@functools.lru_cache(None)
+def caption_sprite_c(words):
+    spr = caption_sprite(words)
+    if not any(w.lower() in RED_WORDS for w in words):
+        return spr
+    # recolour the accent word from gold to red (gold pixels: R high, B low)
+    out = spr.copy()
+    b, g_, r = out[:, :, 0].astype(np.int32), out[:, :, 1].astype(np.int32), out[:, :, 2].astype(np.int32)
+    gold = (r > 120) & (r - b > 90)
+    out[:, :, 1][gold] = (g_[gold] * 0.32).astype(np.uint8)
+    out[:, :, 0][gold] = (b[gold] * 0.9 + 40).clip(0, 255).astype(np.uint8)
+    return out
+
+
 def draw_caption(fr, t):
     for t0, t1, words in CAPTIONS:
         t0, t1 = t0 - CAP_LEAD, t1 - CAP_LEAD
         if t0 <= t < t1:
-            spr = caption_sprite(tuple(words))
+            spr = caption_sprite_c(tuple(words))
             # tiny settle on entry (hard switch, 4-frame rise)
             dy = 10 * (1 - e_out((t - t0) / 0.13))
             blend_rgba(fr, spr, OW / 2 - spr.shape[1] / 2, 935 - 140 + dy, 1.0)
