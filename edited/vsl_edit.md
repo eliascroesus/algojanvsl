@@ -1,7 +1,7 @@
 # vsl_edit.mp4
 
 Edit of Jan's raw VSL (`raw-vsl` release, `VSL.mp4`, 1920×1080, 2:35).
-**1920×1080 (native, no upscale), 30 fps, H.264 CRF 15, BT.709**, about 2:34, audio at -14 LUFS.
+**1920×1080 (native, no upscale), 30 fps, H.264 2-pass 4.5 Mbps (kept under GitHub's 100 MB file limit), BT.709**, about 2:34, audio at -14 LUFS.
 Rebuild with [`tools/edit_vsl.py`](../tools/edit_vsl.py) (instructions at the top of the script).
 
 **Structure** follows the AB Nasdaq reference VSL. **Look** follows Ricky's editing style

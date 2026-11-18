@@ -1,3 +1,0 @@
-# Finished edits are big video files, so they are stored with Git LFS.
-*.mp4 filter=lfs diff=lfs merge=lfs -text
-*.mov filter=lfs diff=lfs merge=lfs -text
