@@ -5,7 +5,7 @@ Jan's raw, unedited FAQ videos. Name each file after the question it answers if 
 **Upload here (up to 2 GB per file):**
 [FAQ raw footage release](https://github.com/eliascroesus/algojanvsl/releases/new?tag=faq&title=FAQ%20raw%20footage)
 
-1. Open the link. If GitHub asks about the tag, pick **Create new tag: faq on publish** (or just keep the existing `faq` tag).
+1. Open the link. If GitHub asks about the tag, pick **Create new tag: faq on publish**.
 2. Drag the videos into the box at the bottom ("Attach binaries by dropping them here").
 3. Wait until every upload bar has finished, then click **Publish release**.
 

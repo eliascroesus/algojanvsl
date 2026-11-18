@@ -5,7 +5,7 @@ Example VSLs to copy the style from (editing, captions, pacing, music).
 **Upload here (up to 2 GB per file):**
 [VSL reference release](https://github.com/eliascroesus/algojanvsl/releases/new?tag=vsl-reference&title=VSL%20reference)
 
-1. Open the link. If GitHub asks about the tag, pick **Create new tag: vsl-reference on publish** (or just keep the existing `vsl-reference` tag).
+1. Open the link. If GitHub asks about the tag, pick **Create new tag: vsl-reference on publish**.
 2. Drag the videos into the box at the bottom ("Attach binaries by dropping them here").
 3. Wait until every upload bar has finished, then click **Publish release**.
 
