@@ -18,10 +18,15 @@ Rebuild with [`tools/edit_vsl.py`](../tools/edit_vsl.py) (instructions at the to
 - **Captions (AB):** 2-3 words at a time with a hard switch, bottom centre, over a soft dark fade. In Ricky's style:
   white Inter Display plus one key word in gold EB Garamond italic with a glow. Captions step aside while other
   graphics are up.
-- **Text beside his head (AB side text, Ricky style)**, 9 times: "I failed | *10 challenges*",
+- **Hook:** opens a little closer on Jan (slow push-in) with "I failed | *10 FTMO*".
+- **Timing:** word times re-measured on the audio (`tools/snap_words.py`: each word start moves to the clear voice
+  onset next to it). Captions switch 0.03 s, cards 0.06 s and written-on text 0.08 s before the word, so they land
+  as he says it.
+- **Text beside his head (AB side text, Ricky style)**, 9 times: "I failed | *10 FTMO*",
   "2.5 years building | *an algorithm*", "trade their | *capital*", "not a skill problem | *being human*",
   "took myself | *out of the equation*", "not some | *holy grail*", "October was | *a bad month*",
-  "get rich quick? | *this isn't it*", "this is | *for you*". The background darkens softly around him while it's up.
+  "get rich quick? | *this isn't it*", "this is | *for you*". The gold side is sized so it's never much wider than the
+  white side. The background darkens softly around him while it's up.
 - **Full-screen pages** (Ricky's STEP page, AB's keynote cards): "How prop firms *work*", "*9 out of 10* traders fail",
   "*2020*, loss after loss", "The strategy wasn't the problem. *I was.*"
 - **Cards** (orange to black, glowing rim, popping in one at a time on the words, background blurred and darkened):
@@ -46,7 +51,8 @@ Rebuild with [`tools/edit_vsl.py`](../tools/edit_vsl.py) (instructions at the to
 ## Sound
 
 - Voice: low cut and light compression, then the whole mix is normalized to -14 LUFS.
-- Music: **"Me and the Devil" (instrumental)** from 0:00. The song is longer than the video, so it doesn't loop. It
+- Music: **"Me and the Devil" (instrumental)**, opening right where the symphony comes in (5.54 s into the song; the
+  beat-only intro is skipped), from the first frame with no fade-in. The song is longer than the video, so it doesn't loop. It
   sits about 16 dB under his voice, dips slightly while he talks, and drops for a beat right before "*I was.*"
   It fades out at the end.
 - Sound effects (synthesized, nothing to license), all quiet:

@@ -14,7 +14,7 @@ usage:
   python tools/edit_vsl.py RAW WORK video T0 T1 OUT.mp4          (render an OUTPUT-time range)
   python tools/edit_vsl.py RAW WORK audio MUSIC.mp3 OUT.wav
   python tools/edit_vsl.py RAW WORK info
-WORK holds words.json (word timestamps of the raw), fonts/ and imgjpg/ (the results-and-images release as JPG).
+WORK holds words.json (word timestamps of the raw), optionally words_aligned.json (tools/snap_words.py), fonts/ and imgjpg/ (the results-and-images release as JPG).
 All cue times below are in RAW-video seconds.
 """
 import functools
@@ -64,6 +64,38 @@ CUTS = []
 for a, b in zip(WORDS, WORDS[1:]):
     if b["s"] - a["e"] > 0.30:
         CUTS.append((a["e"] + 0.12, b["s"] - 0.10))
+
+# Better word timing (words_aligned.json: same words, starts/ends re-measured on the audio). Every cue below was
+# written against the first transcript's word starts; rt() moves a cue time onto the re-measured timeline.
+_OLD_S = np.array([w["s"] for w in WORDS])
+_AL = WORK / "words_aligned.json"
+if _AL.exists():
+    WORDS = [dict(w, w=w["w"].strip()) for w in json.load(open(_AL)) if w["w"].strip()]
+    _NEW_S = np.array([w["s"] for w in WORDS])
+    assert len(_NEW_S) == len(_OLD_S), "aligned words must match the transcript word for word"
+    # never cut into a re-measured word
+    _c = []
+    for a, b in CUTS:
+        for w in WORDS:
+            if w["s"] - 0.08 < b and w["e"] + 0.08 > a:
+                if w["s"] >= (a + b) / 2:
+                    b = min(b, w["s"] - 0.08)
+                else:
+                    a = max(a, w["e"] + 0.08)
+        if b - a > 0.05:
+            _c.append((a, b))
+    CUTS = _c
+else:
+    _NEW_S = _OLD_S
+
+
+def rt(t):
+    return float(np.interp(t, _OLD_S, _NEW_S))
+
+
+TEXT_LEAD = 0.08   # letters take ~0.3 s to resolve, so they start a touch before the word
+POP_LEAD = 0.06    # cards fade in over 0.22 s
+CAP_LEAD = 0.03    # captions switch a frame before the first word
 
 
 def to_out(t):
@@ -383,6 +415,7 @@ def photo_card(name, w, max_h=10000, rz=0.0, accent=False):
 def pop_in(dst, spr_g, cx, cy, t, t0, t_out=None, dur=0.8, rise=90):
     """UI pop-up: scale + rise + 3D tilt settling flat; fast entry, long settle; tilt away on exit."""
     spr, g = spr_g
+    t0 = rt(t0) - POP_LEAD
     if t < t0 or (t_out is not None and t > t_out):
         return
     p = e_expo((t - t0) / dur)
@@ -422,6 +455,7 @@ class TextSeq:
         for line in lines:
             x, items, lh = 0.0, [], 0
             for wi, (word, style, t0) in enumerate(line):
+                t0 = rt(t0) - TEXT_LEAD
                 path, px = ((F_SERIF, serif_px) if style in ("serif", "red") else
                             (F_SANS_M, sans_px * 0.42) if style == "grey" else (F_SANS, sans_px))
                 f = font(path, px)
@@ -539,6 +573,7 @@ class Stroke:
 
     def __init__(self, pts, t0, t_out, dur=0.55, colour=ACCENT, width=7):
         self.pts = np.array(pts, np.float32)
+        t0 = rt(t0)
         self.t0, self.t_out, self.dur, self.col, self.w = t0, t_out, dur, colour, width
         seg = np.linalg.norm(np.diff(self.pts, axis=0), axis=1)
         self.cum = np.concatenate([[0], np.cumsum(seg)])
@@ -600,7 +635,7 @@ FACE = (990, 300)
 WIDE = (960, 540)
 CLOSE = (990, 432)
 SHOTS = [
-    (0.00, 2.38, 1.00, 1.00, *WIDE),          # hook: side text, still frame
+    (0.00, 2.38, 1.08, 1.14, 990, 470),       # hook: a little closer, slow push, side text
     (2.38, 6.00, 1.02, 1.06, *WIDE),          # $7,000 card over the dimmed shot
     (6.00, 7.40, 1.22, 1.25, *CLOSE),         # so I stopped trading myself
     (7.40, 11.00, 1.00, 1.00, *WIDE),         # side text: 2.5 years / an algorithm
@@ -650,14 +685,23 @@ SHOTS = [
 SL, SR_ = 820, 1170   # right edge of the left text / left edge of the gold text
 
 
-def side(left, right, t_out, y=300, sizes=(92, 150)):
-    return [TextSeq(left, t_out, (SL, y), sizes=sizes, align="r", ry=-12, rz=-1.5),
-            TextSeq(right, t_out, (SR_, y + 10), sizes=sizes, align="l", ry=14, rz=3, stagger=0.045)]
+def side(left, right, t_out, y=300, sizes=(92, 150), sl=SL, sr=SR_):
+    """the gold right side is sized so it is never much wider than the white left side."""
+    def width(lines, path, px):
+        f = font(path, px)
+        return max(f.getlength(" ".join(w for w, _, _ in ln)) for ln in lines)
+    sans_px, serif_px = sizes
+    lw = width(left, F_SANS, sans_px)
+    while serif_px > 96 and width(right, F_SERIF, serif_px) > 1.12 * lw:
+        serif_px -= 2
+    return [TextSeq(left, t_out, (sl, y), sizes=(sans_px, serif_px), align="r", ry=-12, rz=-1.5),
+            TextSeq(right, t_out, (sr, y + 10), sizes=(sans_px, serif_px), align="l", ry=14, rz=3, stagger=0.045)]
 
 
 SIDES = [
     (0.00, 2.32, side([L(("I", "sans", 0.0), ("failed", "sans", 0.06))],
-                      [L(("10", "serif", 0.34)), L(("challenges", "serif", 0.98))], 2.32, sizes=(96, 140))),
+                      [L(("10", "serif", 0.34), ("FTMO", "serif", 0.54))], 2.32, y=290, sizes=(100, 120),
+                      sl=770, sr=1165)),
     (7.46, 10.92, side([L(("2.5", "sans", 7.92), ("years", "sans", 8.38)), L(("building", "sans", 8.66))],
                        [L(("an", "serif", 9.04)), L(("algorithm", "serif", 9.22))], 10.92, sizes=(88, 140))),
     (16.42, 17.98, side([L(("trade", "sans", 17.10), ("their", "sans", 17.28))],
@@ -738,9 +782,9 @@ PHOTO_DIM = [(62.70, 65.75), (97.10, 100.00)]
 
 
 def count_7000(t):
-    if t < 3.30:
+    if t < rt(3.30):
         return "$0"
-    v = int(round(7000 * e_out((t - 3.30) / 0.55) / 10) * 10)
+    v = int(round(7000 * e_out((t - rt(3.30)) / 0.55) / 10) * 10)
     return f"${v:,}"
 
 
@@ -942,6 +986,7 @@ def caption_sprite(words):
 
 def draw_caption(fr, t):
     for t0, t1, words in CAPTIONS:
+        t0, t1 = t0 - CAP_LEAD, t1 - CAP_LEAD
         if t0 <= t < t1:
             spr = caption_sprite(tuple(words))
             # tiny settle on entry (hard switch, 4-frame rise)
@@ -1202,6 +1247,9 @@ def load(path, start=0.0, dur=None, filt=None):
     return a.reshape(-1, 2).copy()
 
 
+SONG_START = 5.54   # "Me and the Devil": the beat-only intro is skipped, the video opens as the symphony comes in
+
+
 def db(x):
     return 10 ** (x / 20)
 
@@ -1283,12 +1331,12 @@ def sfx_events():
     for x in MONT_IMGS:
         ev.append((x[5], pop, -23))
     for k in range(9):  # count-up ticks on $7,000
-        ev.append((3.30 + k * 0.06, tick, -26))
+        ev.append((3.30 + k * 0.05, tick, -26))
     for s in STRIKES:
         ev.append((s[4], scr, -22))
-    for a, b, seqs in SIDES:  # AB: a soft click as the side text lands
-        ev.append((seqs[0].chars[0]["t0"], tick, -27))
-        ev.append((seqs[1].chars[0]["t0"], tick, -27))
+    for a, b, seqs in SIDES:  # AB: a soft click as the side text lands (chars already hold re-timed times)
+        ev.append((("abs", seqs[0].chars[0]["t0"]), tick, -27))
+        ev.append((("abs", seqs[1].chars[0]["t0"]), tick, -27))
     ev += [(SPLIT[0] - 0.25, wh_s, -17), (SPLIT[1] - 0.6, wh, -20)]
     for _, t0 in OFFER:
         ev.append((t0, pop, -23))
@@ -1320,7 +1368,9 @@ def render_audio(music_path, out_wav):
     env = np.sqrt(np.convolve((v ** 2).mean(1), np.ones(2400) / 2400, "same"))
     v_rms = float(np.percentile(env[env > 1e-4], 70))
     # music: the uploaded song from 0:00, under the voice, ducked a little while he talks
-    mus = load(music_path)
+    mus = load(music_path, start=SONG_START)
+    f10 = int(0.01 * SR)
+    mus[:f10] *= np.linspace(0, 1, f10)[:, None]
     while len(mus) < n:
         mus = np.concatenate([mus, mus])
     mus = mus[:n]
@@ -1330,14 +1380,15 @@ def render_audio(music_path, out_wav):
     duck = np.convolve(duck, np.ones(SR // 5) / (SR // 5), "same")
     mus *= (1 - 0.30 * duck)[:, None]
     tt = np.arange(n) / SR
-    g = np.clip(tt / 1.5, 0, 1) * np.clip((total - 0.4 - tt) / 2.5, 0, 1)
+    g = np.clip((total - 0.4 - tt) / 2.5, 0, 1)
     # a short breath in the music right before "I was."
     d0, d1 = to_out(77.05), to_out(77.62)
     g *= 1 - 0.75 * np.clip(np.minimum((tt - d0) / 0.25, (d1 + 0.6 - tt) / 0.6), 0, 1) * ((tt > d0) & (tt < d1 + 0.6))
     mus *= g[:, None]
     fx = np.zeros((n, 2), np.float32)
     for t_raw, snd, lvl in sfx_events():
-        i = int(to_out(t_raw) * SR)
+        t_abs = t_raw[1] if isinstance(t_raw, tuple) else rt(t_raw)
+        i = int(to_out(t_abs) * SR)
         if i < 0 or i >= n:
             continue
         j = min(n, i + len(snd))
