@@ -9,6 +9,7 @@ Source material for editing Jan's VSL, thank-you video and FAQ videos.
 | [`faq-raw-footage/`](faq-raw-footage/) | **Jan's** raw FAQ videos |
 | [`vsl-reference/`](vsl-reference/) | Reference VSLs to copy the style from |
 | [`thank-you-reference/`](thank-you-reference/) | Reference thank-you videos to copy the style from |
+| [`ricky-style-reference/`](ricky-style-reference/) | Breakdown of the design and motion graphics from Ricky's edits (rickyvideoediting), with frames |
 
 ## Uploading
 
