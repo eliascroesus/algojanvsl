@@ -1315,6 +1315,7 @@ def load(path, start=0.0, dur=None, filt=None):
     return a.reshape(-1, 2).copy()
 
 
+INTRO_BOOST = 9.0   # dB the song is raised at the very start (still well under his voice)
 SONG_START = 5.54   # "Me and the Devil": the beat-only intro is skipped, the video opens as the symphony comes in
 
 
@@ -1452,7 +1453,18 @@ def render_audio(music_path, out_wav):
     # a short breath in the music right before "I was."
     d0, d1 = to_out(77.05), to_out(77.62)
     g *= 1 - 0.75 * np.clip(np.minimum((tt - d0) / 0.25, (d1 + 0.6 - tt) / 0.6), 0, 1) * ((tt > d0) & (tt < d1 + 0.6))
+    # louder opening so the song grabs attention: +INTRO_BOOST dB through the hook ("...a single cent"),
+    # eased back down to the bed under "So I stopped trading myself"
+    b0, b1 = to_out(5.6), to_out(7.2)
+    xb = np.clip((tt - b0) / (b1 - b0), 0, 1)
+    boost_db = INTRO_BOOST * (1 - xb * xb * (3 - 2 * xb))
+    g *= 10 ** (boost_db / 20)
     mus *= g[:, None]
+    for name, (x0, x1) in (("hook 0-5.5s", (0.0, 5.5)), ("body 20-60s", (20.0, 60.0))):
+        i0, i1 = int(x0 * SR), int(x1 * SR)
+        vr = np.sqrt((v[i0:i1] ** 2).mean()) + 1e-9
+        mr = np.sqrt((mus[i0:i1] ** 2).mean()) + 1e-9
+        print(f"music vs voice, {name}: {20 * np.log10(mr / vr):+.1f} dB")
     fx = np.zeros((n, 2), np.float32)
     for t_raw, snd, lvl in sfx_events():
         t_abs = t_raw[1] if isinstance(t_raw, tuple) else rt(t_raw)

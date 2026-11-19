@@ -58,7 +58,8 @@ Rebuild with [`tools/edit_vsl.py`](../tools/edit_vsl.py) (instructions at the to
 
 - Voice: low cut and light compression, then the whole mix is normalized to -14 LUFS.
 - Music: **"Me and the Devil" (instrumental)**, opening right where the symphony comes in (5.54 s into the song; the
-  beat-only intro is skipped), from the first frame with no fade-in. The song is longer than the video, so it doesn't loop. It
+  beat-only intro is skipped), from the first frame with no fade-in. The song is louder through the hook (about 10 dB under his voice for the
+  first 5.5 s, so it grabs attention straight away), then eases down to the bed under "So I stopped trading myself". The song is longer than the video, so it doesn't loop. It
   sits about 16 dB under his voice, dips slightly while he talks, and drops for a beat right before "*I was.*"
   It fades out at the end.
 - Sound effects (synthesized, nothing to license), all quiet:
