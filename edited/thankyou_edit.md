@@ -1,7 +1,7 @@
 # thankyou_edit.mp4
 
 Edit of Jan's raw thank-you video (`thank-you` release, `thankyou.mp4`, 1920×1080, 1:40).
-**1920×1080, 30 fps, H.264, BT.709**, about 1:38, audio at -14 LUFS.
+**1920×1080, 30 fps, H.264 2-pass 6.8 Mbps, BT.709**, 1:38, audio at -14 LUFS.
 Rebuild with [`tools/edit_thankyou.py`](../tools/edit_thankyou.py). It's the VSL engine with its own cue sheet, and
 it runs the same way as `tools/edit_vsl.py`.
 
