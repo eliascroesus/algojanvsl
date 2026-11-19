@@ -19,6 +19,7 @@ All cue times below are in RAW-video seconds.
 """
 import functools
 import json
+import os
 import math
 import subprocess
 import sys
@@ -31,7 +32,8 @@ from PIL import Image, ImageDraw, ImageFont
 cv2.setNumThreads(1)
 RAW, WORK, MODE = sys.argv[1], Path(sys.argv[2]), sys.argv[3]
 SW, SH = 1920, 1080
-OW, OH = 1920, 1080
+VERT = os.environ.get("VSL_FORMAT") == "9x16"      # 9:16 version: same edit, portrait layout
+OW, OH = (1080, 1920) if VERT else (1920, 1080)
 K = 1.0
 FPS = 30
 SR = 48000
@@ -174,7 +176,8 @@ _yy, _xx = np.mgrid[0:OH, 0:OW]
 _r = np.sqrt(((_xx - OW / 2) / (OW / 2)) ** 2 + ((_yy - OH / 2) / (OH / 2)) ** 2) / math.sqrt(2)
 VIG = np.repeat((np.clip(1 - 0.42 * _r ** 2.3, 0, 1) * 255).astype(np.uint8)[:, :, None], 3, 2)
 # soft feathered ellipse around Jan (flipped frame: head centre x~990), 1 inside -> 0 outside
-_e = np.sqrt(((_xx - 990) / 430.0) ** 2 + ((_yy - 560) / 640.0) ** 2)
+_e = (np.sqrt(((_xx - 540) / 620.0) ** 2 + ((_yy - 800) / 1050.0) ** 2) if VERT else
+      np.sqrt(((_xx - 990) / 430.0) ** 2 + ((_yy - 560) / 640.0) ** 2))
 HEAD_MASK = np.clip((1.35 - _e) / 0.55, 0, 1).astype(np.float32)[:, :, None]
 # dark fade along the bottom for captions
 BOTTOM = (np.clip((_yy[:, :1] - OH * 0.62) / (OH * 0.38), 0, 1).astype(np.float32) ** 1.4)[:, :, None]
@@ -453,6 +456,19 @@ class TextSeq:
         self.ry, self.rz, self.shadow = ry, rz, shadow
         self.chars = []
         sans_px, serif_px = sizes
+        # never wider than 90 % of the frame (matters in 9:16)
+        def _w(sp, rp):
+            ws = []
+            for ln in lines:
+                tot = 0.0
+                for wi, (word, style, _) in enumerate(ln):
+                    f = font(*((F_SERIF, rp) if style in ("serif", "red") else
+                               (F_SANS_M, sp * 0.42) if style == "grey" else (F_SANS, sp)))
+                    tot += f.getlength(word) + (f.getlength(" ") if wi < len(ln) - 1 else 0)
+                ws.append(tot)
+            return max(ws)
+        fit = min(1.0, 0.9 * OW / max(1.0, _w(sans_px, serif_px)))
+        sans_px, serif_px = sans_px * fit, serif_px * fit
         heights, layouts = [], []
         # readable: the whole phrase builds within ~0.45 s of its first word, then holds until t_out
         ts = (rt(base) if base is not None else min(rt(w[2]) for ln in lines for w in ln)) - TEXT_LEAD
@@ -633,6 +649,17 @@ def L(*words):
     return list(words)
 
 
+def PY(y):
+    """vertical position of full-screen page text (designed for 1080 tall)."""
+    return 960 + (y - 540) * 1.25 if VERT else y
+
+
+CW, CH = (600, 270) if VERT else (420, 300)                       # card size in the rows of three
+SLOTS = ([(540, 650), (540, 965), (540, 1280)] if VERT else [(460, 540), (960, 540), (1460, 540)])
+PHOTO_XY = (540, 1150) if VERT else (1500, 480)
+CAP_Y = 1560 if VERT else 935
+
+
 # ================================================================== THE EDIT (raw-video seconds)
 # ---- camera: (t0, t1, z0, z1, cx, cy). hard cut at every t0 (AB: a new framing every 3-5 s)
 FACE = (990, 300)
@@ -690,6 +717,14 @@ SL, SR_ = 820, 1170   # right edge of the left text / left edge of the gold text
 
 
 def side(left, right, t_out, y=300, sizes=(92, 150), sl=SL, sr=SR_):
+    if VERT:   # 9:16: white line(s) over gold line(s), centred over his chest
+        sans_px, serif_px = sizes
+        base = min(w[2] for ln in left + right for w in ln)
+        lh, rh = len(left) * sans_px, len(right) * serif_px
+        top = 1430 - (lh + rh) / 2
+        return [TextSeq(left, t_out, (OW / 2, top + lh / 2), sizes=(sans_px, serif_px), base=base, spread=0.6),
+                TextSeq(right, t_out, (OW / 2, top + lh + rh / 2), sizes=(sans_px, serif_px), stagger=0.045,
+                        base=base, spread=0.6)]
     """the gold right side is sized so it is never much wider than the white left side."""
     def width(lines, path, px):
         f = font(path, px)
@@ -739,26 +774,26 @@ def page(t0, t1, texts, strokes=()):
 
 
 _p = TextSeq([L(("THE", "grey", 14.15), ("QUICK", "grey", 14.2), ("VERSION", "grey", 14.25))], 16.86,
-             (OW / 2, 380), sizes=(96, 96), stagger=0.03)
+             (OW / 2, PY(380)), sizes=(96, 96), stagger=0.03)
 _q = TextSeq([L(("How", "sans", 14.42), ("prop", "sans", 14.54), ("firms", "sans", 14.66), ("work", "serif", 15.42))],
-             16.86, (OW / 2, 540), sizes=(110, 190))
+             16.86, (OW / 2, PY(540)), sizes=(110, 190))
 page(14.10, 16.90, [_p, _q], [underline(_q, 14.90, 16.86)])
 
 _a = TextSeq([L(("9", "serif", 29.32), ("out", "serif", 29.50), ("of", "serif", 29.70), ("10", "serif", 29.80))],
-             31.46, (OW / 2, 470), sizes=(110, 250))
-_b = TextSeq([L(("traders", "sans", 29.96), ("fail", "red", 30.26))], 31.46, (OW / 2, 700), sizes=(110, 170))
+             31.46, (OW / 2, PY(470)), sizes=(110, 250))
+_b = TextSeq([L(("traders", "sans", 29.96), ("fail", "red", 30.26))], 31.46, (OW / 2, PY(700)), sizes=(110, 170))
 page(28.82, 31.50, [_a, _b])
 
-_a = TextSeq([L(("TRADING", "grey", 51.92), ("MANUALLY", "grey", 51.98))], 54.41, (OW / 2, 330), sizes=(96, 96),
+_a = TextSeq([L(("TRADING", "grey", 51.92), ("MANUALLY", "grey", 51.98))], 54.41, (OW / 2, PY(330)), sizes=(96, 96),
              stagger=0.03)
-_b = TextSeq([L(("2020", "serif", 50.76))], 54.41, (OW / 2, 500), sizes=(110, 260), stagger=0.06)
+_b = TextSeq([L(("2020", "serif", 50.76))], 54.41, (OW / 2, PY(500)), sizes=(110, 260), stagger=0.06)
 _c = TextSeq([L(("loss", "red", 53.28), ("after", "red", 53.66), ("loss", "red", 53.96))], 54.41, (OW / 2, 730),
              sizes=(100, 150))
 page(50.62, 54.45, [_a, _b, _c])
 
 _a = TextSeq([L(("The", "sans", 75.96), ("strategy", "sans", 76.22), ("wasn't", "sans", 76.54), ("the", "sans", 76.84),
-                ("problem.", "sans", 76.94))], 78.9, (OW / 2, 430), sizes=(96, 150))
-_b = TextSeq([L(("I", "serif", 77.48), ("was.", "serif", 77.62))], 78.9, (OW / 2, 640), sizes=(110, 260))
+                ("problem.", "sans", 76.94))], 78.9, (OW / 2, PY(430)), sizes=(96, 150))
+_b = TextSeq([L(("I", "serif", 77.48), ("was.", "serif", 77.62))], 78.9, (OW / 2, PY(640)), sizes=(110, 260))
 page(75.90, 78.95, [_a, _b], [underline(_b, 77.85, 78.9)])
 
 MONTAGE = (122.10, 125.66)
@@ -775,8 +810,11 @@ MONT_IMGS = [  # (file, centre x, centre y, width, rotation, pop time)
     ("member11.jpg", 1700, 560, 460, -2, 124.70),
 ]
 MONT_LABEL = TextSeq([L(("MEMBERS", "grey", 122.12), ("RUNNING", "grey", 122.16), ("IT", "grey", 122.2),
-                        ("RIGHT", "grey", 122.24), ("NOW", "grey", 122.28))], 125.6, (OW / 2, 60), sizes=(80, 80),
+                        ("RIGHT", "grey", 122.24), ("NOW", "grey", 122.28))], 125.6, (OW / 2, 110 if VERT else 60), sizes=(80, 80),
                      stagger=0.02)
+
+if VERT:   # the collage re-laid for a tall frame
+    MONT_IMGS = [(n, 40 + x * 1000 / 1920, 250 + y * 1500 / 1080, int(w * 0.95), r, t0) for n, x, y, w, r, t0 in MONT_IMGS]
 
 FULLSCREEN = [(a, b, "page", i) for i, (a, b, _, _) in enumerate(PAGES)] + [(MONTAGE[0], MONTAGE[1], "montage", 0)]
 
@@ -793,81 +831,91 @@ def count_7000(t):
     return f"-${v:,}"
 
 
-STRIKES = [  # (x0, y0, x1, y1, t0, t_out, colour)
-    (275, 545, 645, 525, 48.32, 49.08, RED), (775, 545, 1145, 525, 48.50, 49.08, RED),
-    (1275, 545, 1645, 525, 48.76, 49.08, RED),
-    (275, 545, 645, 525, 91.00, 96.98, RED), (775, 545, 1145, 525, 92.70, 96.98, RED),
-    (1275, 545, 1645, 525, 94.60, 96.98, RED),
-]
-STROKES = [Stroke(curve(*s[:4], 6), s[4], s[5], dur=0.3, colour=s[6], width=7) for s in STRIKES]
-LINKS = [  # small connectors between cards in a row
-    (667, 540, 753, 540, 19.95, 26.95), (1167, 540, 1253, 540, 22.30, 26.95),
-    (667, 540, 753, 540, 36.55, 41.2), (1167, 540, 1253, 540, 39.30, 41.2),
-    (667, 540, 753, 540, 84.30, 88.6), (1167, 540, 1253, 540, 85.90, 88.6),
-]
+def _strike(i, t0, t1):
+    cx, cy = SLOTS[i]
+    return (cx - CW / 2 + 35, cy + 5, cx + CW / 2 - 35, cy - 15, t0, t1, RED)
+
+
+STRIKES = [_strike(0, 48.32, 49.08), _strike(1, 48.50, 49.08), _strike(2, 48.76, 49.08),
+           _strike(0, 91.00, 96.98), _strike(1, 92.70, 96.98), _strike(2, 94.60, 96.98)]
+STROKES = [Stroke(curve(*s_[:4], 6), s_[4], s_[5], dur=0.3, colour=s_[6], width=7) for s_ in STRIKES]
+
+
+def _link(i, t0, t1):
+    (ax, ay), (bx, by) = SLOTS[i], SLOTS[i + 1]
+    if VERT:
+        return (ax, ay + CH / 2 - 3, bx, by - CH / 2 + 3, t0, t1)
+    return (ax + CW / 2 - 3, ay, bx - CW / 2 + 3, by, t0, t1)
+
+
+LINKS = [_link(0, 19.95, 26.95), _link(1, 22.30, 26.95), _link(0, 36.55, 41.2), _link(1, 39.30, 41.2),
+         _link(0, 84.30, 88.6), _link(1, 85.90, 88.6)]
 STROKES += [Stroke(curve(x0, y0, x1, y1, 0), t0, t1, dur=0.35, colour=(150, 190, 240), width=4)
             for x0, y0, x1, y1, t0, t1 in LINKS]
 
 UNDER_TEXT = [
     TextSeq([L(("not", "sans", 26.16), ("your", "sans", 26.34), ("own", "sans", 26.46), ("capital", "serif", 26.60))],
-            27.05, (OW / 2, 800), sizes=(64, 100)),
+            27.05, (OW / 2, CAP_Y - 70 if VERT else 800), sizes=(64, 100)),
     TextSeq([L(("an", "sans", 47.5), ("algorithm", "sans", 47.6), ("doesn't", "serif", 47.94), ("feel", "serif", 48.32),
-               ("it", "serif", 48.76))], 49.0, (OW / 2, 800), sizes=(64, 100)),
+               ("it", "serif", 48.76))], 49.0, (OW / 2, CAP_Y - 70 if VERT else 800), sizes=(64, 100)),
     TextSeq([L(("it", "sans", 88.80), ("just", "sans", 88.9), ("doesn't", "sans", 89.0), ("trade", "serif", 89.1))],
-            88.7, (OW / 2, 800), sizes=(64, 100)),
+            88.7, (OW / 2, CAP_Y - 70 if VERT else 800), sizes=(64, 100)),
 ]
 
 
 def cards_over(fr, t):
     """all cards/photos drawn over the footage."""
-    y = 540
-    # hook: $7,000 lost
+    (x0, y0), (x1, y1), (x2, y2) = SLOTS
+    cx, cy = OW / 2, OH / 2
+    # hook: -$7,000 lost (red)
     if 2.3 <= t <= 5.95:
         pop_in(fr, ui_card(640, 400, count_7000(t), "lost before trading paid me a single cent", style="serif",
-                           icon="down", main_px=150, sub_px=29, tone="red"), 960, y, t, 2.40, 5.95)
+                           icon="down", main_px=150, sub_px=29, tone="red"), cx, cy, t, 2.40, 5.95)
     # fee / pass / fail
-    pop_in(fr, ui_card(420, 300, "Pay a fee", "to take their evaluation", icon="dollar", main_px=58, sub_px=29),
-           460, y, t, 18.18, 27.15)
-    pop_in(fr, ui_card(420, 300, "Pass", "keep most of the profits", style="serif", accent=True, icon="chart",
-                       main_px=110, sub_px=29), 960, y, t, 20.14, 27.15)
-    pop_in(fr, ui_card(420, 300, "Fail", "you only lose the fee", style="serif", icon="down", main_px=110,
-                       sub_px=29, tone="red"), 1460, y, t, 22.52, 27.15)
+    pop_in(fr, ui_card(CW, CH, "Pay a fee", "to take their evaluation", icon="dollar", main_px=58, sub_px=29),
+           x0, y0, t, 18.18, 27.15)
+    pop_in(fr, ui_card(CW, CH, "Pass", "keep most of the profits", style="serif", accent=True, icon="chart",
+                       main_px=110, sub_px=29), x1, y1, t, 20.14, 27.15)
+    pop_in(fr, ui_card(CW, CH, "Fail", "you only lose the fee", style="serif", icon="down", main_px=110,
+                       sub_px=29, tone="red"), x2, y2, t, 22.52, 27.15)
     # the one trade
-    pop_in(fr, ui_card(420, 300, "A loss", "the trade goes against you", style="serif", icon="down", main_px=100,
-                       sub_px=29, tone="red"), 460, y, t, 35.64, 41.36)
-    pop_in(fr, ui_card(420, 300, "Go bigger", "to win it back", icon="chart", main_px=58, sub_px=29),
-           960, y, t, 36.72, 41.36)
-    pop_in(fr, ui_card(420, 300, "Breached", "the drawdown limit", style="serif", main_px=100,
-                       sub_px=29, tone="red"), 1460, y, t, 39.52, 41.36)
+    pop_in(fr, ui_card(CW, CH, "A loss", "the trade goes against you", style="serif", icon="down", main_px=100,
+                       sub_px=29, tone="red"), x0, y0, t, 35.64, 41.36)
+    pop_in(fr, ui_card(CW, CH, "Go bigger", "to win it back", icon="chart", main_px=58, sub_px=29),
+           x1, y1, t, 36.72, 41.36)
+    pop_in(fr, ui_card(CW, CH, "Breached", "the drawdown limit", style="serif", main_px=100,
+                       sub_px=29, tone="red"), x2, y2, t, 39.52, 41.36)
     # fear / greed / need to be right
-    pop_in(fr, ui_card(420, 300, "Fear", "", style="serif", icon="brain", main_px=110), 460, y, t, 43.62, 49.10)
-    pop_in(fr, ui_card(420, 300, "Greed", "", style="serif", icon="dollar", main_px=110), 960, y, t, 44.00, 49.10)
-    pop_in(fr, ui_card(420, 300, "Need to be right", "", main_px=46), 1460, y, t, 45.26, 49.10)
+    pop_in(fr, ui_card(CW, CH, "Fear", "", style="serif", icon="brain", main_px=110), x0, y0, t, 43.62, 49.10)
+    pop_in(fr, ui_card(CW, CH, "Greed", "", style="serif", icon="dollar", main_px=110), x1, y1, t, 44.00, 49.10)
+    pop_in(fr, ui_card(CW, CH, "Need to be right", "", main_px=46), x2, y2, t, 45.26, 49.10)
     # fixed rules
-    pop_in(fr, ui_card(420, 300, "Fixed rules", "the same every time", icon="gear", main_px=58, sub_px=29),
-           460, y, t, 82.12, 88.75)
-    pop_in(fr, ui_card(420, 300, "No setup?", "no trade", style="serif", icon="chart", main_px=96, sub_px=30),
-           960, y, t, 83.26, 88.75)
-    pop_in(fr, ui_card(420, 300, "Some weeks", "zero trades", style="serif", accent=True, icon="clock", main_px=90,
-                       sub_px=30), 1460, y, t, 86.04, 88.75)
+    pop_in(fr, ui_card(CW, CH, "Fixed rules", "the same every time", icon="gear", main_px=58, sub_px=29),
+           x0, y0, t, 82.12, 88.75)
+    pop_in(fr, ui_card(CW, CH, "No setup?", "no trade", style="serif", icon="chart", main_px=96, sub_px=30),
+           x1, y1, t, 83.26, 88.75)
+    pop_in(fr, ui_card(CW, CH, "Some weeks", "zero trades", style="serif", accent=True, icon="clock", main_px=90,
+                       sub_px=30), x2, y2, t, 86.04, 88.75)
     # what it takes away
-    pop_in(fr, ui_card(420, 300, "Revenge trades", "", main_px=50), 460, y, t, 90.52, 97.0)
-    pop_in(fr, ui_card(420, 300, "Going too big", "", main_px=50), 960, y, t, 92.18, 97.0)
-    pop_in(fr, ui_card(420, 300, "Staring at charts", "", main_px=46), 1460, y, t, 93.94, 97.0)
+    pop_in(fr, ui_card(CW, CH, "Revenge trades", "", main_px=50), x0, y0, t, 90.52, 97.0)
+    pop_in(fr, ui_card(CW, CH, "Going too big", "", main_px=50), x1, y1, t, 92.18, 97.0)
+    pop_in(fr, ui_card(CW, CH, "Staring at charts", "", main_px=46), x2, y2, t, 93.94, 97.0)
     # passed / payouts
-    pop_in(fr, ui_card(700, 130, "Prop firm evaluations passed", check=True, align="l", main_px=40), 960, 460, t,
+    pop_in(fr, ui_card(700, 130, "Prop firm evaluations passed", check=True, align="l", main_px=40), cx, cy - 80, t,
            103.46, 105.10, rise=50)
-    pop_in(fr, ui_card(700, 130, "Payouts received", check=True, align="l", main_px=40, accent=True), 960, 620, t,
+    pop_in(fr, ui_card(700, 130, "Payouts received", check=True, align="l", main_px=40, accent=True), cx, cy + 80, t,
            104.40, 105.10, rise=50)
-    # photos beside him
-    pop_in(fr, photo_card("IMG_8640.jpg", 470, 600, rz=-3), 1520, 470, t, 62.94, 65.75)
-    pop_in(fr, photo_card("IMG_9170.jpg", 420, 560, rz=-4), 1500, 480, t, 97.30, 100.0)
-    pop_in(fr, photo_card("IMG_2377.jpg", 400, 540, rz=3), 1560, 500, t, 98.52, 100.0)
-    pop_in(fr, photo_card("957E2BE4-21CF-40D0-BC94-DEB64836BD57.jpg", 440, 480, rz=-2), 1490, 520, t, 99.30, 100.0)
-    for s in STROKES:
-        s.draw(fr, t)
-    for s in UNDER_TEXT:
-        s.draw(fr, t)
+    # photos beside (16:9) / below (9:16) him
+    px, py = PHOTO_XY
+    pop_in(fr, photo_card("IMG_8640.jpg", 470, 600, rz=-3), px + 20, py - 10, t, 62.94, 65.75)
+    pop_in(fr, photo_card("IMG_9170.jpg", 420, 560, rz=-4), px, py, t, 97.30, 100.0)
+    pop_in(fr, photo_card("IMG_2377.jpg", 400, 540, rz=3), px + 60, py + 20, t, 98.52, 100.0)
+    pop_in(fr, photo_card("957E2BE4-21CF-40D0-BC94-DEB64836BD57.jpg", 440, 480, rz=-2), px - 10, py + 40, t, 99.30,
+           100.0)
+    for s_ in STROKES:
+        s_.draw(fr, t)
+    for s_ in UNDER_TEXT:
+        s_.draw(fr, t)
 
 
 # ---- the offer: split screen (AB) with Ricky's check cards
@@ -881,12 +929,13 @@ OFFER = [
     ("Direct access to me after you join", 147.24),
 ]
 OFFER_TITLE = TextSeq([L(("Here's", "sans", 135.48), ("what", "sans", 135.74), ("you", "serif", 135.84),
-                         ("get", "serif", 135.94))], 150.6, (1440, 150), sizes=(70, 110))
+                         ("get", "serif", 135.94))], 150.6, (540, 1040) if VERT else (1440, 150), sizes=(70, 110))
 
 # ---- CTA
 CTA = [TextSeq([L(("Fill", "sans", 152.26), ("out", "sans", 152.34), ("the", "serif", 152.44),
-                   ("application", "serif", 152.52))], 156.0, (OW / 2, 820), sizes=(80, 130)),
-       TextSeq([L(("DOWN", "grey", 152.92), ("BELOW", "grey", 152.98))], 156.0, (OW / 2, 960), sizes=(90, 90),
+                   ("application", "serif", 152.52))], 156.0, (OW / 2, 1450 if VERT else 820), sizes=(80, 130)),
+       TextSeq([L(("DOWN", "grey", 152.92), ("BELOW", "grey", 152.98))], 156.0, (OW / 2, 1590 if VERT else 960),
+               sizes=(90, 90),
                stagger=0.03)]
 CTA_DIM = (150.85, 156.0)
 SPOT = (100.0, 103.40)            # spotlight on his FTMO certificate (flipped frame coords)
@@ -1059,7 +1108,10 @@ def draw_caption(fr, t):
             spr = caption_sprite_c(tuple(words))
             # tiny settle on entry (hard switch, 4-frame rise)
             dy = 10 * (1 - e_out((t - t0) / 0.13))
-            blend_rgba(fr, spr, OW / 2 - spr.shape[1] / 2, 935 - 140 + dy, 1.0)
+            if spr.shape[1] > OW * 0.96:
+                k = OW * 0.96 / spr.shape[1]
+                spr = cv2.resize(spr, (int(spr.shape[1] * k), int(spr.shape[0] * k)), interpolation=cv2.INTER_AREA)
+            blend_rgba(fr, spr, OW / 2 - spr.shape[1] / 2, CAP_Y - spr.shape[0] * 140 / 220 + dy, 1.0)
             return True
     return False
 
@@ -1105,19 +1157,29 @@ def shot_at(t):
     return SHOTS[-1]
 
 
-def camera(fr, t):
+VCX = {960: 990, 520: 300}   # 9:16: wide shots centre on Jan, the certificate push centres on the certificate
+
+
+def crop_params(t):
+    """source crop (x0, y0) and scale for the current shot, for either output shape."""
     t0, t1, z0, z1, cx, cy = shot_at(t)
-    z = z0 + (z1 - z0) * e_sm((t - t0) / max(0.01, t1 - t0)) if True else z0
-    # slow AB-style drift: linear-ish but eased at the ends
-    z = z0 + (z1 - z0) * ((t - t0) / max(0.01, t1 - t0))
-    if abs(z - 1) < 1e-3:
+    z = z0 + (z1 - z0) * ((t - t0) / max(0.01, t1 - t0))   # slow AB-style drift
+    if VERT:
+        cx = VCX.get(cx, cx)
+    ch = SH / z
+    cw = ch * OW / OH
+    x0 = min(max(cx - cw / 2, 0), SW - cw)
+    y0 = min(max(cy - ch / 2, 0), SH - ch)
+    return x0, y0, OH / ch
+
+
+def camera(fr, t):
+    x0, y0, s_ = crop_params(t)
+    if not VERT and abs(s_ - 1) < 1e-3:
         return fr
-    w, h = OW / z, OH / z
-    x0 = min(max(cx - w / 2, 0), OW - w)
-    y0 = min(max(cy - h / 2, 0), OH - h)
-    M = np.float32([[z, 0, -x0 * z], [0, z, -y0 * z]])
+    M = np.float32([[s_, 0, -x0 * s_], [0, s_, -y0 * s_]])
     out = cv2.warpAffine(fr, M, (OW, OH), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
-    if z > 1.12:  # light unsharp to offset the upscale
+    if s_ > 1.12:  # light unsharp to offset the upscale
         bl = cv2.GaussianBlur(out, (0, 0), 1.2)
         out = cv2.addWeighted(out, 1.35, bl, -0.35, 0)
     return out
@@ -1146,11 +1208,7 @@ def spotlight(fr, t):
     if amt <= 0.01:
         return fr
     # the spot follows the camera (rect is in source coords, camera push is applied before)
-    t0, t1, z0, z1, cx, cy = shot_at(t)
-    z = z0 + (z1 - z0) * ((t - t0) / max(0.01, t1 - t0))
-    w, h = OW / z, OH / z
-    x0 = min(max(cx - w / 2, 0), OW - w)
-    y0 = min(max(cy - h / 2, 0), OH - h)
+    x0, y0, z = crop_params(t)
     rx0, ry0, rx1, ry1 = [(v - o) * z for v, o in zip(SPOT_RECT, (x0, y0, x0, y0))]
     m = np.zeros((OH, OW), np.float32)
     cv2.rectangle(m, (int(rx0), int(ry0)), (int(rx1), int(ry1)), 1.0, -1)
@@ -1192,6 +1250,22 @@ def split_frame(src, t, base):
     p = e_expo((t - a) / 0.7) if t < b - 0.6 else 1 - e_io((t - (b - 0.6)) / 0.6)
     if p <= 0.001:
         return base
+    if VERT:
+        ph = 1000
+        py = int(round(OH - ph * p))
+        out = base.copy()
+        out[py:] = grid_bg(t)[OH - ph:OH - ph + (OH - py)]
+        seam = np.exp(-((np.arange(40) - 20) / 6.0) ** 2)[:, None, None] * np.array((40, 120, 230), np.float32)
+        y0 = max(0, py - 20)
+        hh = min(40, OH - y0)
+        roi = out[y0:y0 + hh].astype(np.float32)
+        out[y0:y0 + hh] = np.clip(roi + seam[:hh] * 0.5 * p, 0, 255).astype(np.uint8)
+        if p > 0.98:
+            OFFER_TITLE.draw(out, t)
+            for i, (txt, t0) in enumerate(OFFER):
+                pop_in(out, ui_card(960, 104, txt, check=True, align="l", main_px=36, accent=(i == 0)), 540,
+                       1150 + i * 124, t, t0, b - 0.3, dur=0.6, rise=40)
+        return out
     shift = int(round(510 * p))
     out = np.zeros_like(base)
     out[:, :OW - shift] = base[:, shift:]
