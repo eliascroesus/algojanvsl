@@ -763,6 +763,29 @@ def link(a, b, t0, t1, w=CW):
     LINKS.append((ax + w / 2 - 3, ay, bx - w / 2 + 3, by, t0, t1))
 
 
+PHOTOS = []      # (file, x, y, width, max height, tilt, t_in, t_out): proof pictures over the dimmed footage
+
+
+def photo(name, x, y, w, max_h, rz, t0, t1):
+    PHOTOS.append((name, x, y, w, max_h, rz, t0, t1))
+
+
+class PagePhoto:
+    """a picture that pops in on a full-screen page."""
+
+    def __init__(self, name, x, y, w, max_h, rz, t0, t1):
+        self.a = (name, w, max_h, rz)
+        self.x, self.y, self.t0, self.t1 = x, y, t0, t1
+
+    def draw(self, fr, t):
+        name, w, max_h, rz = self.a
+        pop_in(fr, photo_card(name, w, max_h, rz=rz), self.x, self.y, t, self.t0, self.t1, dur=0.7, rise=70)
+
+
+def text_at(lines, t_out, x, y, sizes=(84, 130)):
+    return TextSeq(lines, t_out, (x, y), sizes=sizes)
+
+
 def over(text_lines, t_out, y=300, sizes=(80, 120)):
     UNDER_TEXT.append(TextSeq(text_lines, t_out, (OW / 2, y), sizes=sizes))
 
@@ -796,9 +819,15 @@ card(TW, CH, 960, 560, 8.70, 10.72, main="A wall of payouts", sub="like all the 
      icon="dollar")
 strike(960, 560, TW, 9.70, 10.70)
 CARD_DIM.append((7.30, 10.72))
-page(10.75, 13.60, [label("INSTEAD", 10.78, 13.56),
-                    TextSeq([L(("My", "sans", 11.82), ("students'", "sans", 12.34))], 13.56, (OW / 2, 500), sizes=(110, 200)),
-                    TextSeq([L(("results", "serif", 13.06))], 13.56, (OW / 2, 690), sizes=(110, 240))])
+MONTAGE = (10.75, 13.60)   # his students' proof, flashing in as he says "my actual students' results"
+MONT_IMGS = [("IMG_1892.jpg", 330, 560, 470, 560, -4, 10.85),
+             ("IMG_2022.jpg", 760, 600, 420, 800, 3, 11.10),
+             ("Screenshot_2026-09-18_at_9_22_23_AM.jpg", 1180, 420, 560, 400, -3, 11.35),
+             ("IMG_1893.jpg", 1560, 600, 420, 800, 4, 11.60),
+             ("IMG_1904.jpg", 1180, 700, 400, 760, -2, 11.85),
+             ("Screenshot_2026-11-16_at_12_10_22_PM.jpg", 520, 860, 520, 380, 3, 12.10)]
+MONT_LABEL = TextSeq([L(("My", "sans", 11.82), ("students'", "sans", 12.10), ("results", "serif", 12.34))], 13.56,
+                     (OW / 2, 90), sizes=(80, 110))
 _g = TextSeq([L(("$100,000", "serif", 18.26))], 19.91, (OW / 2, 520), sizes=(110, 260), stagger=0.05)
 page(15.95, 19.95, [label("I GUARANTEE YOU'LL PASS", 16.08, 19.91, y=320), _g,
                     TextSeq([L(("funded", "sans", 19.04), ("account", "sans", 19.30))], 19.91, (OW / 2, 740),
@@ -809,23 +838,24 @@ CARD_DIM.append((22.05, 24.02))
 CHING.append(23.26)
 
 # ---------------------------------------------------------------- 0:27 student proof
-over([L(("STUDENT", "grey", 27.10), ("RESULTS:", "grey", 27.14), ("BRANDON", "sans", 27.20))], 32.98, y=330,
+over([L(("STUDENT", "grey", 27.10), ("RESULTS:", "grey", 27.14), ("BRAYDEN", "sans", 27.20))], 32.98, y=110,
      sizes=(90, 90))
-card(TW, CH, *TWO[0], 28.20, 32.98, main="Zero experience", sub="never traded before", style="serif", main_px=78,
+card(TW, CH, 560, 420, 28.20, 32.98, main="Zero experience", sub="never traded before", style="serif", main_px=78,
      sub_px=30, tone="red", icon="down")
-card(TW, CH, *TWO[1], 31.68, 32.98, main="First payout", sub="in 2 weeks", style="serif", accent=True, main_px=96,
+card(TW, CH, 560, 760, 31.68, 32.98, main="First payout", sub="in 2 weeks", style="serif", accent=True, main_px=96,
      sub_px=34, icon="check")
-link(TWO[0], TWO[1], 31.5, 32.95, w=TW)
+LINKS.append((560, 572, 560, 608, 31.5, 32.95))
+photo("IMG_1893.jpg", 1340, 580, 520, 860, 2, 30.00, 32.98)
 CHING.append(31.94)
-over([L(("STUDENT", "grey", 33.52), ("RESULTS:", "grey", 33.56), ("ZLADE", "sans", 33.60))], 40.88, y=330,
+over([L(("STUDENT", "grey", 33.52), ("RESULTS:", "grey", 33.56), ("ZLADE", "sans", 33.60))], 40.88, y=110,
      sizes=(90, 90))
-card(CW, CH, *SLOTS[0], 33.92, 40.88, main="Failed 7 months", sub="before working with me", style="serif",
-     main_px=70, sub_px=28, tone="red", icon="down")
-card(CW, CH, *SLOTS[1], 38.44, 40.88, main="3 evals passed", sub="from the 8th month", style="serif", accent=True,
-     main_px=76, sub_px=28, icon="check")
-card(CW, CH, *SLOTS[2], 40.46, 40.88, main="Got paid", sub="", style="serif", accent=True, main_px=96, icon="dollar")
-link(SLOTS[0], SLOTS[1], 38.3, 40.85)
-link(SLOTS[1], SLOTS[2], 40.3, 40.85)
+card(TW, CH, 480, 420, 33.92, 40.88, main="Failed 7 months", sub="before working with me", style="serif",
+     main_px=76, sub_px=28, tone="red", icon="down")
+card(TW, CH, 480, 760, 38.44, 40.88, main="3 evals passed", sub="and he got paid", style="serif", accent=True,
+     main_px=80, sub_px=30, icon="check")
+LINKS.append((480, 572, 480, 608, 38.3, 40.85))
+photo("IMG_1892.jpg", 1140, 540, 560, 660, -3, 37.46, 40.88)
+photo("IMG_2022.jpg", 1600, 590, 470, 880, 3, 40.08, 40.88)
 CARD_DIM.append((27.05, 40.90))
 CHING.append(40.66)
 
@@ -844,11 +874,20 @@ SIDES.append((49.65, 52.05, side([L(("just", "sans", 50.94), ("one", "sans", 51.
                                  [L(("account", "red", 51.64))], 52.05)))
 
 # ---------------------------------------------------------------- 0:56 his story
-_p = TextSeq([L(("$10", "red", 58.94))], 59.91, (OW / 2, 520), sizes=(110, 270))
-page(56.00, 59.95, [label("POPCORN MACHINE, MOVIE THEATER", 56.88, 59.91, y=320), _p,
-                    TextSeq([L(("an", "sans", 59.32), ("hour", "sans", 59.60))], 59.91, (OW / 2, 740), sizes=(100, 150))])
-SIDES.append((61.70, 63.72, side([L(("never", "sans", 62.06), ("work", "sans", 62.32)), L(("a", "sans", 62.58), ("job", "sans", 62.68))],
-                                 [L(("ever", "serif", 62.92)), L(("again", "serif", 63.24))], 63.72)))
+page(56.00, 59.95, [TextSeq([L(*W_("POPCORN MACHINE", "grey", 56.88, 0.05))], 59.91, (1340, 330), sizes=(96, 96),
+                            stagger=0.03),
+                    TextSeq([L(*W_("MOVIE THEATER", "grey", 57.96, 0.05))], 59.91, (1340, 380), sizes=(96, 96),
+                            stagger=0.03),
+                    TextSeq([L(("$10", "red", 58.94))], 59.91, (1340, 560), sizes=(110, 270)),
+                    TextSeq([L(("an", "sans", 59.32), ("hour", "sans", 59.60))], 59.91, (1340, 770), sizes=(100, 150))],
+     under=[PagePhoto("IMG_0005.jpg", 560, 540, 640, 880, -3, 56.20, 59.95)])
+# the sticky-note wall: "I swore I would never work a job ever again"
+photo("IMG_1459.jpg", 500, 545, 620, 860, -3, 60.30, 63.72)
+UNDER_TEXT.append(text_at([L(("I", "sans", 61.44), ("swore", "sans", 61.54), ("I'd", "sans", 61.78), ("never", "sans", 62.06)),
+                           L(("work", "sans", 62.32), ("a", "sans", 62.58), ("job", "sans", 62.68))], 63.70, 1490, 470,
+                          sizes=(74, 120)))
+UNDER_TEXT.append(text_at([L(("ever", "serif", 62.92), ("again", "serif", 63.24))], 63.70, 1490, 690, sizes=(74, 150)))
+CARD_DIM.append((60.05, 63.72))
 card(TW, CH, 960, 560, 65.68, 67.32, main="Live account", sub="saved up for it, then blew it", style="serif",
      main_px=96, sub_px=30, tone="red", icon="down")
 strike(960, 560, TW, 66.74, 67.30, colour=WHITE)
@@ -906,16 +945,17 @@ CARD_DIM.append((135.52, 139.48))
 CHING.append(136.94)
 
 # ---------------------------------------------------------------- 2:20 Koi
-over([L(("STUDENT", "grey", 141.16), ("RESULTS:", "grey", 141.20), ("KOI", "sans", 141.24))], 150.30, y=330,
+over([L(("STUDENT", "grey", 141.16), ("RESULTS:", "grey", 141.20), ("KOI", "sans", 141.24))], 150.30, y=110,
      sizes=(90, 90))
-card(CW, CH, *SLOTS[0], 142.12, 150.30, main="Ex-military", sub="started trading ICT", style="serif", main_px=84,
-     sub_px=28, icon="check")
-card(CW, CH, *SLOTS[1], 145.12, 150.30, main="Payouts now & then", sub="never consistent", style="serif",
-     main_px=62, sub_px=28, tone="red", icon="chart")
-card(CW, CH, *SLOTS[2], 149.16, 150.30, main="2 payouts", sub="back to back", style="serif", accent=True,
-     main_px=96, sub_px=32, icon="dollar")
-link(SLOTS[0], SLOTS[1], 145.0, 150.25)
-link(SLOTS[1], SLOTS[2], 149.0, 150.25)
+card(TW, CH, 480, 420, 142.12, 150.30, main="Ex-military", sub="started trading ICT", style="serif", main_px=90,
+     sub_px=30, icon="check")
+card(TW, CH, 480, 760, 145.12, 150.30, main="Payouts now & then", sub="never consistent", style="serif",
+     main_px=70, sub_px=30, tone="red", icon="chart")
+LINKS.append((480, 572, 480, 608, 145.0, 150.25))
+photo("IMG_1904.jpg", 1150, 580, 480, 880, -2, 147.00, 150.30)
+photo("Screenshot_2026-11-16_at_12_10_22_PM.jpg", 1590, 640, 600, 480, 3, 149.16, 150.30)
+UNDER_TEXT.append(text_at([L(("2", "serif", 149.16), ("payouts", "serif", 149.38), ("back", "sans", 149.76), ("to", "sans", 150.02),
+                             ("back", "sans", 150.12))], 150.28, 1420, 1000, sizes=(64, 90)))
 CARD_DIM.append((141.10, 150.32))
 CHING.append(149.38)
 
@@ -962,16 +1002,18 @@ CTA_DIM = (169.20, 171.75)
 END_DIM = (183.30, 186.0)
 
 BGFX = [(a - 0.05, b + 0.1) for a, b, _ in SIDES] + [END_DIM]
-FULLSCREEN = [(a, b, "page", i) for i, (a, b, *_) in enumerate(PAGES)]
+FULLSCREEN = [(a, b, "page", i) for i, (a, b, *_) in enumerate(PAGES)] + [(MONTAGE[0], MONTAGE[1], "montage", 0)]
 STROKES = [Stroke(curve(*s_[:4], 6), s_[4], s_[5], dur=0.3, colour=s_[6], width=7) for s_ in STRIKES]
 STROKES += [Stroke(curve(x0, y0, x1, y1, 0), t0, t1, dur=0.35, colour=(150, 190, 240), width=4)
             for x0, y0, x1, y1, t0, t1 in LINKS]
-POPS = [c[4] for c in CARDS]
+POPS = [c[4] for c in CARDS] + [p_[6] for p_ in PHOTOS]
 
 
 def cards_over(fr, t):
     for kw, (w, h), x, y, t0, t1 in CARDS:
         pop_in(fr, ui_card(w, h, **kw), x, y, t, t0, t1, rise=50 if h < 200 else 90)
+    for name, x, y, w, max_h, rz, t0, t1 in PHOTOS:
+        pop_in(fr, photo_card(name, w, max_h, rz=rz), x, y, t, t0, t1, dur=0.7, rise=70)
     for s_ in STROKES:
         s_.draw(fr, t)
     for s_ in UNDER_TEXT:
@@ -1365,8 +1407,10 @@ def page_frame(i, t):
 
 def montage_frame(t):
     fr = grid_bg(t)
-    for name, cx, cy, w, rz, t0 in MONT_IMGS:
-        pop_in(fr, photo_card(name, w, 380, rz=rz), cx, cy, t, t0, MONTAGE[1] + 0.2, dur=0.6, rise=60)
+    for m in MONT_IMGS:
+        name, cx, cy, w = m[:4]
+        max_h, rz, t0 = (m[4], m[5], m[6]) if len(m) == 7 else (380, m[4], m[5])
+        pop_in(fr, photo_card(name, w, max_h, rz=rz), cx, cy, t, t0, MONTAGE[1] + 0.2, dur=0.6, rise=60)
     MONT_LABEL.draw(fr, t)
     return fr
 
@@ -1564,7 +1608,7 @@ def sfx_events():
     wh, pop, tick, ching, scr = sfx_whoosh(0.55, 300, 6500), sfx_pop(), sfx_tick(), sfx_ching(), sfx_scratch()
     ev = [(tl - 0.25, wh, -24) for tl in LEAKS]
     ev += [(t0, pop, -22) for t0 in POPS]
-    ev += [(x[5], pop, -23) for x in MONT_IMGS]
+    ev += [(x[-1], pop, -23) for x in MONT_IMGS]
     ev += [(s_[4], scr, -22) for s_ in STRIKES]
     for a, b, seqs in SIDES:
         ev.append((("abs", seqs[0].chars[0]["t0"]), tick, -27))

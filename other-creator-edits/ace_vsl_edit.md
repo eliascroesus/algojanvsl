@@ -26,21 +26,26 @@ trims dead air inside takes on true silence, so it ends up with 52 pieces.
   - a red **-$1,200** card "for a mentorship";
   - "couldn't pass an eval | *for 1.5 years*";
   - "A wall of payouts / like all the gurus do", struck out;
-  - page "INSTEAD / My students' *results*".
+  - "My students' *results*" over a collage of his students' proof (Zlaidzzz, Brayden and Koi's Discord posts and
+    the Lucid payout certificates) popping in one by one.
 - **Guarantee:** page "I GUARANTEE YOU'LL PASS / ***$100,000*** / funded account", then "*Every single cent back* / if you
   don't pass".
-- **Student results:** each starts in red and ends in gold:
-  - BRANDON: Zero experience → *First payout in 2 weeks*;
-  - ZLADE: Failed 7 months → *3 evals passed* → *Got paid*;
-  - KOI: Ex-military (started trading ICT) → Payouts now & then (never consistent) → *2 payouts back to back*.
+- **Student results:** each starts in red and ends in gold, with the student's real screenshot popping in as he says
+  the result:
+  - BRAYDEN: Zero experience → *First payout in 2 weeks*, plus his "first ever eval bought and passed with zero L's"
+    post with the funded-account certificate;
+  - ZLADE: Failed 7 months → *3 evals passed and he got paid*, plus his "passed my 2nd and 3rd eval" post and his
+    testimonial with the $1,000 payout;
+  - KOI: Ex-military (started trading ICT) → Payouts now & then (never consistent), plus his testimonial and his
+    $1,035 payout certificate under "*2 payouts* back to back".
 - **The pain:**
   - "buying eval | *after eval*";
   - red "*$200 away* from passing";
   - red page "One bad day / *wipes out the good ones*" with a falling chart;
   - "just one more | *account*".
 - **His story:**
-  - page "POPCORN MACHINE, MOVIE THEATER / ***$10*** / an hour";
-  - "never work a job | *ever again*";
+  - page with his photo of the movie theater beside "POPCORN MACHINE / MOVIE THEATER / ***$10*** / an hour";
+  - his wall of "I will be successful" sticky notes beside "I swore I'd never work a job / *ever again*";
   - "Live account", struck out;
   - -$1,200 mentorship → "20-minute videos / then he left me";
   - red *No check-ins / No follow-ups / No nothing*.
@@ -75,7 +80,7 @@ trims dead air inside takes on true silence, so it ends up with 52 pieces.
 
 ## Things to check with him
 
-- **Student names** are spelled as the transcript heard them: **Brandon**, **Zlade** and **Koi**.
-- **No payout screenshots:** he planned to "flash student proof / spam payouts" at 0:27 but none were uploaded, so the
-  student stories are shown as cards. Upload the screenshots (to the same release) and they can be dropped in.
+- **Names:** the first student is labelled **BRAYDEN**, as in his screenshot (the transcript heard "Brandon"). Zlade is
+  "Zlaidzzz" on Discord and keeps the spoken "Zlade" on screen.
+- **Images** come from the `other-raw-vsl-assets` release (converted to JPG in the edit's `imgjpg/` folder).
 - **Music:** the song is the same one as Jan's videos; send another if he has his own.
