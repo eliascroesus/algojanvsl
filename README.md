@@ -10,6 +10,7 @@ Source material for editing Jan's VSL, thank-you video and FAQ videos.
 | [`vsl-reference/`](vsl-reference/) | Reference VSLs to copy the style from |
 | [`thank-you-reference/`](thank-you-reference/) | Reference thank-you videos to copy the style from |
 | [`other-creator-raw-vsl/`](other-creator-raw-vsl/) | Another creator's raw VSL (not Algo Jan), to edit in the same style |
+| [`other-creator-edits/`](other-creator-edits/) | The other creator's edited VSL and its notes |
 | [`results-and-images/`](results-and-images/) | Student results, photos of Jan and other images / B-roll |
 | [`ricky-style-reference/`](ricky-style-reference/) | Breakdown of the design and motion graphics from Ricky's edits (rickyvideoediting), with frames |
 

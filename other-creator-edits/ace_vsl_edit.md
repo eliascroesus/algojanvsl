@@ -1,7 +1,7 @@
 # ace_vsl_edit.mp4 (another creator's VSL)
 
 Edit of `AceVSL1.mp4` (`other-creator-raw-vsl` release): 13:24 of raw webcam recording (1080p60) → a **3:05 VSL**,
-1920×1080, 30 fps, about -14 LUFS. It's the same style as Jan's VSL: AB Nasdaq's structure and Ricky's design (black +
+1920×1080, 30 fps, H.264 2-pass 3.75 Mbps (kept under GitHub's 100 MB limit), -14 LUFS. It's the same style as Jan's VSL: AB Nasdaq's structure and Ricky's design (black +
 gold, Inter + EB Garamond italic, orange cards, grid pages), plus the light leaks and staircase zooms from the
 thank-you edit.
 
