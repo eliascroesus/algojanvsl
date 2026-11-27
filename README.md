@@ -9,6 +9,7 @@ Source material for editing Jan's VSL, thank-you video and FAQ videos.
 | [`faq-raw-footage/`](faq-raw-footage/) | **Jan's** raw FAQ videos |
 | [`vsl-reference/`](vsl-reference/) | Reference VSLs to copy the style from |
 | [`thank-you-reference/`](thank-you-reference/) | Reference thank-you videos to copy the style from |
+| [`other-creator-raw-vsl/`](other-creator-raw-vsl/) | Another creator's raw VSL (not Algo Jan), to edit in the same style |
 | [`results-and-images/`](results-and-images/) | Student results, photos of Jan and other images / B-roll |
 | [`ricky-style-reference/`](ricky-style-reference/) | Breakdown of the design and motion graphics from Ricky's edits (rickyvideoediting), with frames |
 
@@ -27,6 +28,7 @@ then click **Publish release**:
 | VSL reference | [releases/new?tag=vsl-reference](https://github.com/eliascroesus/algojanvsl/releases/new?tag=vsl-reference&title=VSL%20reference) |
 | Thank-you reference | [releases/new?tag=thank-you-reference](https://github.com/eliascroesus/algojanvsl/releases/new?tag=thank-you-reference&title=Thank-you%20reference) |
 | **Results and images** (student results, photos of Jan) | [releases/new?tag=results-and-images](https://github.com/eliascroesus/algojanvsl/releases/new?tag=results-and-images&title=Results%20and%20images) |
+| **Other creator's raw VSL** (not Algo Jan) | [releases/new?tag=other-creator-raw-vsl](https://github.com/eliascroesus/algojanvsl/releases/new?tag=other-creator-raw-vsl&title=Other%20creator%20raw%20VSL) |
 
 **Pictures, screenshots and small files (under 25 MB):** open the folder on GitHub, click
 **Add file → Upload files**, drag the files in and click **Commit changes**.
